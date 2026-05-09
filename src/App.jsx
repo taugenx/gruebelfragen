@@ -215,22 +215,29 @@ export default function App() {
     setGenerating(true);
     try {
       const existing = fragen.join(" | ");
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000,
-          messages:[{role:"user",content:`Erstelle genau 8 neue witzige deutsche Grübelfragen im Stil von "Sind Buttermesser eigentlich Streichinstrumente?" – kurze, philosophisch-absurde Wortspiel-Fragen. Max 12 Wörter pro Frage. Nicht wiederholen: ${existing}. Antworte NUR mit einem JSON-Array von Strings, kein anderer Text.`}]
-        })
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ existing }),
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 120)}`);
+      }
       const data = await res.json();
-      const raw = data.content?.find(b=>b.type==="text")?.text||"[]";
-      const newFragen = JSON.parse(raw.replace(/```json|```/g,"").trim());
-      if (Array.isArray(newFragen)&&newFragen.length>0) {
+      const raw = data.content?.find(b => b.type === "text")?.text || "[]";
+      const newFragen = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (Array.isArray(newFragen) && newFragen.length > 0) {
         const insertAt = fragen.length;
-        setFragen(prev=>[...prev,...newFragen]);
+        setFragen(prev => [...prev, ...newFragen]);
         setCurrent(insertAt);
         showToast(`✨ ${newFragen.length} neue Fragen!`);
+      } else {
+        showToast("❌ Keine Fragen erhalten");
       }
-    } catch { showToast("❌ Generierung fehlgeschlagen"); }
+    } catch (e) {
+      showToast("❌ Fehler: " + (e.message || "Generierung fehlgeschlagen"));
+    }
     setGenerating(false);
   };
 

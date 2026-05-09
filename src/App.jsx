@@ -120,6 +120,26 @@ async function saveCard(text, themeIdx, dateStr, showToast) {
   try {
     const canvas = await buildCardImage(text, themeIdx, dateStr);
     const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+    const file = new File([blob], "gruebelfrage.png", { type: "image/png" });
+
+    // 1) Web Share API (iOS Safari, Android Chrome) — oeffnet natives Share-Sheet
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: "Grübelfrage des Tages",
+          text: text,
+        });
+        showToast("📤 Geteilt!");
+        return;
+      } catch (e) {
+        // User hat abgebrochen — kein Fehler-Toast
+        if (e && e.name === "AbortError") return;
+        // andere Fehler -> Fallback auf Download unten
+      }
+    }
+
+    // 2) Fallback: Download (Desktop / Browser ohne Share-Sheet)
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -128,7 +148,7 @@ async function saveCard(text, themeIdx, dateStr, showToast) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast("📸 Gespeichert! Jetzt in WhatsApp Status einfügen.");
+    showToast("📸 Gespeichert!");
   } catch(e) {
     showToast("Fehler: " + e.message);
   }
@@ -339,7 +359,7 @@ export default function App() {
           {generating?"⏳ Generiert...":"✨ Neue Fragen"}
         </button>
         <button className="btn" onClick={handleShare} disabled={sharing} style={{fontFamily:"'Fredoka One',cursive",fontSize:"15px",background:sharing?"#333":"#25D366",color:"#fff",border:"3px solid #1a1a2e",boxShadow:"4px 4px 0px #1a1a2e",borderRadius:"50px",padding:"11px 22px",opacity:sharing?0.6:1}}>
-          {sharing?"⏳ Lädt...":"📸 Bild speichern"}
+          {sharing?"⏳ Lädt...":"📤 Teilen"}
         </button>
       </div>
 

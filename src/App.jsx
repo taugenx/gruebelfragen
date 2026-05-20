@@ -215,8 +215,19 @@ export default function App() {
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
 
   const go = (dir) => {
+    if (fragen.length === 0) return;
     setCurrent(c => { const n=c+dir; if(n<0) return fragen.length-1; if(n>=fragen.length) return 0; return n; });
     setBounce(true); setTimeout(()=>setBounce(false),350);
+  };
+
+  const removeCurrentQuestion = () => {
+    setFragen(prev => {
+      const next = [...prev];
+      next.splice(current, 1);
+      saveFragen(next);
+      return next;
+    });
+    setCurrent(c => Math.min(c, fragen.length - 2));
   };
 
   const handleTouchStart = (e) => {
@@ -243,10 +254,14 @@ export default function App() {
 
   const handleArchive = () => {
     const text = fragen[current];
-    if (archive.find(a=>a.text===text)) { showToast("Schon im Archiv! ⭐"); return; }
-    const entry = { id:Date.now(), text, themeIdx:current%themes.length, archivedAt:dateStr };
-    const next = [entry, ...archive];
-    setArchive(next); saveArchive(next); showToast("⭐ Archiviert!");
+    if (fragen.length<=1) { showToast("Mindestens eine Frage muss bleiben!"); return; }
+    if (!archive.find(a=>a.text===text)) {
+      const entry = { id:Date.now(), text, themeIdx:current%themes.length, archivedAt:dateStr };
+      const next = [entry, ...archive];
+      setArchive(next); saveArchive(next);
+    }
+    removeCurrentQuestion();
+    showToast("⭐ Zu Favoriten verschoben");
   };
 
   const removeFromArchive = (id) => {
@@ -257,8 +272,7 @@ export default function App() {
   const handleDeleteClick = (e) => {
     e.stopPropagation();
     if (fragen.length<=1) { showToast("Mindestens eine Frage muss bleiben!"); return; }
-    setFragen(prev=>{ const n=[...prev]; n.splice(current,1); saveFragen(n); return n; });
-    setCurrent(c=>Math.min(c,fragen.length-2));
+    removeCurrentQuestion();
     showToast("🗑️ Frage gelöscht");
   };
 
@@ -317,19 +331,19 @@ export default function App() {
     .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#fff;color:#1a1a2e;padding:10px 22px;border-radius:30px;font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:99;white-space:nowrap;}
   `;
 
-  // ── Archive view ────────────────────────────────────────────────
+  // ── Favorites view ──────────────────────────────────────────────
   if (view==="archive") return (
     <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",padding:"24px 16px",gap:"16px"}}>
       <style>{CSS}</style>
       {toast&&<div className="toast">{toast}</div>}
       <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
         <button className="btn" onClick={()=>setView("main")} style={{fontFamily:"'Fredoka One',cursive",fontSize:"15px",background:"rgba(255,255,255,0.1)",color:"#fff",border:"2px solid rgba(255,255,255,0.2)",borderRadius:"50px",padding:"8px 18px"}}>← Zurück</button>
-        <div style={{fontFamily:"'Fredoka One',cursive",fontSize:"22px",color:"#fff"}}>⭐ Archiv <span style={{fontSize:"14px",opacity:0.5}}>({archive.length})</span></div>
+        <div style={{fontFamily:"'Fredoka One',cursive",fontSize:"22px",color:"#fff"}}>⭐ Favoriten <span style={{fontSize:"14px",opacity:0.5}}>({archive.length})</span></div>
       </div>
       {archive.length===0
         ? <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"12px"}}>
             <div style={{fontSize:"60px"}}>📭</div>
-            <div style={{fontFamily:"'Fredoka One',cursive",color:"rgba(255,255,255,0.4)",fontSize:"18px",textAlign:"center"}}>Noch nichts archiviert.<br/>Tippe auf ☆ um Karten zu speichern.</div>
+            <div style={{fontFamily:"'Fredoka One',cursive",color:"rgba(255,255,255,0.4)",fontSize:"18px",textAlign:"center"}}>Noch keine Favoriten.<br/>Tippe auf ☆ um Karten zu speichern.</div>
           </div>
         : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:"12px"}}>
             {archive.map(item=><MiniCard key={item.id} item={item} dateStr={dateStr} onShare={handleArchiveShare} onRemove={removeFromArchive}/>)}
@@ -343,13 +357,6 @@ export default function App() {
     <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 16px",gap:"16px"}}>
       <style>{CSS}</style>
       {toast&&<div className="toast">{toast}</div>}
-
-      {/* Archive button top right */}
-      <div style={{position:"fixed",top:"16px",right:"16px",zIndex:20}}>
-        <button className="btn" onClick={()=>setView("archive")} style={{fontFamily:"'Fredoka One',cursive",fontSize:"13px",background:"rgba(255,255,255,0.12)",color:"#fff",border:"2px solid rgba(255,255,255,0.2)",borderRadius:"50px",padding:"7px 14px"}}>
-          ⭐ Archiv{archive.length>0?` (${archive.length})`:""}
-        </button>
-      </div>
 
       {/* Card */}
       <div className={`card${bounce?" bounce":""}`} onClick={handleCardClick} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={()=>setTouchStart(null)}
@@ -393,6 +400,10 @@ export default function App() {
           {sharing?"⏳ Lädt...":"📤 Teilen"}
         </button>
       </div>
+
+      <button className="btn" onClick={()=>setView("archive")} style={{fontFamily:"'Fredoka One',cursive",fontSize:"13px",background:"rgba(255,255,255,0.1)",color:"#fff",border:"2px solid rgba(255,255,255,0.18)",borderRadius:"50px",padding:"7px 14px"}}>
+        ⭐ Favoriten{archive.length>0?` (${archive.length})`:""}
+      </button>
 
       <div style={{color:"rgba(255,255,255,0.2)",fontSize:"11px",fontFamily:"'Nunito',sans-serif"}}>Karte antippen = nächste Frage</div>
     </div>

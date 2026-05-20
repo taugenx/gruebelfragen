@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 const starterFragen = [
   "Sind Buttermesser eigentlich Streichinstrumente?",
@@ -205,7 +205,9 @@ export default function App() {
   const [sharing, setSharing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [bounce, setBounce] = useState(false);
+  const [touchStart, setTouchStart] = useState(null);
   const [toast, setToast] = useState("");
+  const suppressClickRef = useRef(false);
 
   const theme = themes[current % themes.length];
   const isArchived = archive.some(a => a.text === fragen[current]);
@@ -215,6 +217,28 @@ export default function App() {
   const go = (dir) => {
     setCurrent(c => { const n=c+dir; if(n<0) return fragen.length-1; if(n>=fragen.length) return 0; return n; });
     setBounce(true); setTimeout(()=>setBounce(false),350);
+  };
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!touchStart) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStart.x;
+    const dy = touch.clientY - touchStart.y;
+    setTouchStart(null);
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    suppressClickRef.current = true;
+    go(dx < 0 ? 1 : -1);
+    setTimeout(() => { suppressClickRef.current = false; }, 250);
+  };
+
+  const handleCardClick = () => {
+    if (suppressClickRef.current) return;
+    go(1);
   };
 
   const handleArchive = () => {
@@ -328,8 +352,8 @@ export default function App() {
       </div>
 
       {/* Card */}
-      <div className={`card${bounce?" bounce":""}`} onClick={()=>go(1)}
-        style={{width:"min(340px,92vw)",minHeight:"390px",borderRadius:"28px",background:theme.bg,border:`5px solid ${theme.text}`,boxShadow:`8px 8px 0px ${theme.text}`,position:"relative",overflow:"hidden",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"26px 22px 20px"}}>
+      <div className={`card${bounce?" bounce":""}`} onClick={handleCardClick} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={()=>setTouchStart(null)}
+        style={{width:"min(340px,92vw)",minHeight:"390px",borderRadius:"28px",background:theme.bg,border:`5px solid ${theme.text}`,boxShadow:`8px 8px 0px ${theme.text}`,position:"relative",overflow:"hidden",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"26px 22px 20px",touchAction:"pan-y"}}>
         <PatternSVG type={theme.pattern} color={theme.text}/>
         <div style={{position:"absolute",bottom:"-28px",right:"-28px",width:"110px",height:"110px",borderRadius:"50%",background:theme.accent,opacity:0.45,border:`4px solid ${theme.text}`}}/>
         <div style={{position:"absolute",top:"-18px",left:"-18px",width:"72px",height:"72px",borderRadius:"50%",background:theme.accent,opacity:0.4,border:`3px solid ${theme.text}`}}/>

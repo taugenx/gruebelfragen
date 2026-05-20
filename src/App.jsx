@@ -205,7 +205,6 @@ export default function App() {
   const [sharing, setSharing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [bounce, setBounce] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [toast, setToast] = useState("");
 
   const theme = themes[current % themes.length];
@@ -214,7 +213,6 @@ export default function App() {
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
 
   const go = (dir) => {
-    setConfirmDelete(false);
     setCurrent(c => { const n=c+dir; if(n<0) return fragen.length-1; if(n>=fragen.length) return 0; return n; });
     setBounce(true); setTimeout(()=>setBounce(false),350);
   };
@@ -234,11 +232,10 @@ export default function App() {
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
-    if (!confirmDelete) { setConfirmDelete(true); setTimeout(()=>setConfirmDelete(false),3000); return; }
-    if (fragen.length<=1) { showToast("Mindestens eine Frage muss bleiben!"); setConfirmDelete(false); return; }
+    if (fragen.length<=1) { showToast("Mindestens eine Frage muss bleiben!"); return; }
     setFragen(prev=>{ const n=[...prev]; n.splice(current,1); saveFragen(n); return n; });
     setCurrent(c=>Math.min(c,fragen.length-2));
-    setConfirmDelete(false); showToast("🗑️ Frage gelöscht");
+    showToast("🗑️ Frage gelöscht");
   };
 
   const generateNew = async () => {
@@ -331,7 +328,7 @@ export default function App() {
       </div>
 
       {/* Card */}
-      <div className={`card${bounce?" bounce":""}`} onClick={()=>{if(!confirmDelete)go(1);}}
+      <div className={`card${bounce?" bounce":""}`} onClick={()=>go(1)}
         style={{width:"min(340px,92vw)",minHeight:"390px",borderRadius:"28px",background:theme.bg,border:`5px solid ${theme.text}`,boxShadow:`8px 8px 0px ${theme.text}`,position:"relative",overflow:"hidden",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"26px 22px 20px"}}>
         <PatternSVG type={theme.pattern} color={theme.text}/>
         <div style={{position:"absolute",bottom:"-28px",right:"-28px",width:"110px",height:"110px",borderRadius:"50%",background:theme.accent,opacity:0.45,border:`4px solid ${theme.text}`}}/>
@@ -339,8 +336,8 @@ export default function App() {
 
         {/* ✕ delete */}
         <button className="icobtn" onClick={handleDeleteClick}
-          style={{position:"absolute",top:"12px",right:"12px",width:confirmDelete?"auto":"32px",height:"32px",borderRadius:"20px",background:confirmDelete?"#FF3B30":"rgba(0,0,0,0.18)",color:"#fff",fontFamily:"'Fredoka One',cursive",fontSize:confirmDelete?"13px":"16px",padding:confirmDelete?"0 12px":"0",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,boxShadow:confirmDelete?"0 2px 8px rgba(255,59,48,0.5)":"none"}}>
-          {confirmDelete?"Löschen?":"✕"}
+          style={{position:"absolute",top:"12px",right:"12px",width:"32px",height:"32px",borderRadius:"20px",background:"rgba(0,0,0,0.18)",color:"#fff",fontFamily:"'Fredoka One',cursive",fontSize:"16px",padding:"0",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10}}>
+          ✕
         </button>
 
         {/* ☆ archive */}

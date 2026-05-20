@@ -180,17 +180,17 @@ function PatternSVG({ type, color }) {
 }
 
 // ── Mini card for saved grids ─────────────────────────────────────
-function MiniCard({ item, dateStr, onShare, onRemove, onArchive }) {
+function MiniCard({ item, dateStr, onShare, onRemove, onArchive, onOpen }) {
   const t = themes[item.themeIdx % themes.length];
   return (
-    <div style={{position:"relative",borderRadius:"16px",background:t.bg,border:`3px solid ${t.text}`,boxShadow:`4px 4px 0 ${t.text}`,overflow:"hidden",padding:"14px 12px 10px",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",minHeight:"140px"}}>
+    <div onClick={()=>onOpen&&onOpen(item)} style={{position:"relative",borderRadius:"16px",background:t.bg,border:`3px solid ${t.text}`,boxShadow:`4px 4px 0 ${t.text}`,overflow:"hidden",padding:"14px 12px 10px",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",minHeight:"140px",cursor:onOpen?"pointer":"default"}}>
       <PatternSVG type={t.pattern} color={t.text}/>
       <div style={{fontSize:"28px",zIndex:1}}>{t.face}</div>
       <div style={{fontFamily:"'Fredoka One',cursive",fontSize:"12px",color:t.text,textAlign:"center",lineHeight:1.35,zIndex:1,flexGrow:1}}>{item.text}</div>
       <div style={{display:"flex",gap:"6px",zIndex:1,marginTop:"4px"}}>
-        <button onClick={()=>onShare(item)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:t.text,color:t.bg,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>📤</button>
-        {onArchive&&<button onClick={()=>onArchive(item)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:"rgba(0,0,0,0.15)",color:t.text,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>🗂</button>}
-        <button onClick={()=>onRemove(item.id)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:"rgba(0,0,0,0.15)",color:t.text,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>✕</button>
+        <button onClick={(e)=>{e.stopPropagation();onShare(item);}} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:t.text,color:t.bg,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>📤</button>
+        {onArchive&&<button onClick={(e)=>{e.stopPropagation();onArchive(item);}} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:"rgba(0,0,0,0.15)",color:t.text,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>🗂</button>}
+        <button onClick={(e)=>{e.stopPropagation();onRemove(item.id);}} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:"rgba(0,0,0,0.15)",color:t.text,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>✕</button>
       </div>
     </div>
   );
@@ -207,6 +207,7 @@ export default function App() {
   const [archive, setArchive] = useState(loadArchive);
   const [posted, setPosted] = useState(loadPosted);
   const [view, setView] = useState("main");
+  const [selectedFavorite, setSelectedFavorite] = useState(null);
   const [sharing, setSharing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [bounce, setBounce] = useState(false);
@@ -300,12 +301,13 @@ export default function App() {
     addToPosted(item);
     const next = archive.filter(a=>a.id!==item.id);
     setArchive(next); saveArchive(next);
+    setSelectedFavorite(null);
     showToast("🗂️ Archiviert");
   };
 
   const removeFromArchive = (id) => {
     const next = archive.filter(a=>a.id!==id);
-    setArchive(next); saveArchive(next); showToast("Aus Favoriten entfernt");
+    setArchive(next); saveArchive(next); setSelectedFavorite(null); showToast("Aus Favoriten entfernt");
   };
 
   const removeFromPosted = (id) => {
@@ -375,9 +377,36 @@ export default function App() {
     .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#fff;color:#1a1a2e;padding:10px 22px;border-radius:30px;font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:99;white-space:nowrap;}
   `;
 
+  if (view==="archive" && selectedFavorite) {
+    const t = themes[selectedFavorite.themeIdx % themes.length];
+    return (
+      <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))",gap:"16px"}}>
+        <style>{CSS}</style>
+        {toast&&<div className="toast">{toast}</div>}
+        <button className="btn" onClick={()=>setSelectedFavorite(null)} style={{alignSelf:"flex-start",fontFamily:"'Fredoka One',cursive",fontSize:"15px",background:"rgba(255,255,255,0.1)",color:"#fff",border:"2px solid rgba(255,255,255,0.2)",borderRadius:"50px",padding:"8px 18px"}}>
+          ← Favoriten
+        </button>
+        <div style={{width:"min(340px,92vw)",minHeight:"390px",borderRadius:"28px",background:t.bg,border:`5px solid ${t.text}`,boxShadow:`8px 8px 0px ${t.text}`,position:"relative",overflow:"hidden",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"26px 22px 20px"}}>
+          <PatternSVG type={t.pattern} color={t.text}/>
+          <div style={{position:"absolute",bottom:"-28px",right:"-28px",width:"110px",height:"110px",borderRadius:"50%",background:t.accent,opacity:0.45,border:`4px solid ${t.text}`}}/>
+          <div style={{position:"absolute",top:"-18px",left:"-18px",width:"72px",height:"72px",borderRadius:"50%",background:t.accent,opacity:0.4,border:`3px solid ${t.text}`}}/>
+          <div style={{background:t.text,color:t.bg,fontFamily:"'Fredoka One',cursive",fontSize:"11px",letterSpacing:"1.5px",padding:"5px 16px",borderRadius:"20px",zIndex:1,textTransform:"uppercase"}}>Favorit</div>
+          <div style={{fontSize:"66px",zIndex:1,lineHeight:1}}>{t.face}</div>
+          <div style={{fontFamily:"'Fredoka One',cursive",fontSize:selectedFavorite.text.length>60?"19px":"23px",color:t.text,textAlign:"center",lineHeight:1.4,zIndex:1,padding:"0 4px"}}>{selectedFavorite.text}</div>
+          <div style={{fontFamily:"'Nunito',sans-serif",fontSize:"11px",fontWeight:"700",color:t.text,opacity:0.5,zIndex:1}}>{selectedFavorite.archivedAt || dateStr}</div>
+        </div>
+        <div style={{display:"flex",gap:"10px",flexWrap:"wrap",justifyContent:"center"}}>
+          <button className="btn" onClick={()=>handleArchiveShare(selectedFavorite)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"15px",background:"#25D366",color:"#fff",border:"3px solid #1a1a2e",boxShadow:"4px 4px 0px #1a1a2e",borderRadius:"50px",padding:"11px 18px"}}>📤 Teilen</button>
+          <button className="btn" onClick={()=>archivePostedFromFavorite(selectedFavorite)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"15px",background:"#FFC75F",color:"#1a1a2e",border:"3px solid #1a1a2e",boxShadow:"4px 4px 0px #1a1a2e",borderRadius:"50px",padding:"11px 18px"}}>🗂 Archiv</button>
+          <button className="btn" onClick={()=>removeFromArchive(selectedFavorite.id)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"15px",background:"rgba(255,255,255,0.1)",color:"#fff",border:"3px solid rgba(255,255,255,0.2)",borderRadius:"50px",padding:"11px 18px"}}>✕ Entfernen</button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Favorites view ──────────────────────────────────────────────
   if (view==="archive") return (
-    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",padding:"24px 16px",gap:"16px"}}>
+    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",padding:"calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))",gap:"16px"}}>
       <style>{CSS}</style>
       {toast&&<div className="toast">{toast}</div>}
       <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
@@ -390,7 +419,7 @@ export default function App() {
             <div style={{fontFamily:"'Fredoka One',cursive",color:"rgba(255,255,255,0.4)",fontSize:"18px",textAlign:"center"}}>Noch keine Favoriten.<br/>Tippe auf ☆ um Karten zu speichern.</div>
           </div>
         : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:"12px"}}>
-            {archive.map(item=><MiniCard key={item.id} item={item} dateStr={dateStr} onShare={handleArchiveShare} onRemove={removeFromArchive} onArchive={archivePostedFromFavorite}/>)}
+            {archive.map(item=><MiniCard key={item.id} item={item} dateStr={dateStr} onShare={handleArchiveShare} onRemove={removeFromArchive} onArchive={archivePostedFromFavorite} onOpen={setSelectedFavorite}/>)}
           </div>
       }
     </div>
@@ -398,7 +427,7 @@ export default function App() {
 
   // ── Posted archive view ────────────────────────────────────────
   if (view==="posted") return (
-    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",padding:"24px 16px",gap:"16px"}}>
+    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",padding:"calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))",gap:"16px"}}>
       <style>{CSS}</style>
       {toast&&<div className="toast">{toast}</div>}
       <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
@@ -419,7 +448,7 @@ export default function App() {
 
   // ── Main view ───────────────────────────────────────────────────
   return (
-    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 16px",gap:"16px"}}>
+    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))",gap:"16px"}}>
       <style>{CSS}</style>
       {toast&&<div className="toast">{toast}</div>}
 

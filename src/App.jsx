@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 
 const starterFragen = [
   "Sind Buttermesser eigentlich Streichinstrumente?",
@@ -36,8 +36,18 @@ const themes = [
 ];
 
 const STORAGE_KEY = "gruebelfragen_archive";
+const QUESTIONS_STORAGE_KEY = "gruebelfragen_questions";
 function loadArchive() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; } }
 function saveArchive(arr) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch {} }
+function loadFragen() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(QUESTIONS_STORAGE_KEY) || "null");
+    return Array.isArray(saved) && saved.length > 0 ? saved : starterFragen;
+  } catch {
+    return starterFragen;
+  }
+}
+function saveFragen(arr) { try { localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(arr)); } catch {} }
 
 // ── Canvas helpers ────────────────────────────────────────────────
 function drawPatternCanvas(ctx, type, color, W, H) {
@@ -188,8 +198,8 @@ export default function App() {
   const dayOfYear = Math.floor((today - new Date(today.getFullYear(),0,0)) / 86400000);
   const dateStr = today.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"});
 
-  const [fragen, setFragen] = useState(starterFragen);
-  const [current, setCurrent] = useState(dayOfYear % starterFragen.length);
+  const [fragen, setFragen] = useState(loadFragen);
+  const [current, setCurrent] = useState(() => dayOfYear % fragen.length);
   const [archive, setArchive] = useState(loadArchive);
   const [view, setView] = useState("main");
   const [sharing, setSharing] = useState(false);
@@ -226,7 +236,7 @@ export default function App() {
     e.stopPropagation();
     if (!confirmDelete) { setConfirmDelete(true); setTimeout(()=>setConfirmDelete(false),3000); return; }
     if (fragen.length<=1) { showToast("Mindestens eine Frage muss bleiben!"); setConfirmDelete(false); return; }
-    setFragen(prev=>{ const n=[...prev]; n.splice(current,1); return n; });
+    setFragen(prev=>{ const n=[...prev]; n.splice(current,1); saveFragen(n); return n; });
     setCurrent(c=>Math.min(c,fragen.length-2));
     setConfirmDelete(false); showToast("🗑️ Frage gelöscht");
   };
@@ -249,7 +259,7 @@ export default function App() {
       const newFragen = JSON.parse(raw.replace(/```json|```/g, "").trim());
       if (Array.isArray(newFragen) && newFragen.length > 0) {
         const insertAt = fragen.length;
-        setFragen(prev => [...prev, ...newFragen]);
+        setFragen(prev => { const next = [...prev, ...newFragen]; saveFragen(next); return next; });
         setCurrent(insertAt);
         showToast(`✨ ${newFragen.length} neue Fragen!`);
       } else {

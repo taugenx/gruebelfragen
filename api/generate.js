@@ -25,6 +25,9 @@ export default async function handler(req, res) {
 
   const prompt =
     'Erstelle genau 8 neue witzige deutsche Gruebelfragen im Stil von "Sind Buttermesser eigentlich Streichinstrumente?" — kurze, philosophisch-absurde Wortspiel-Fragen. Max 12 Woerter pro Frage. ' +
+    "Bevorzuge Themen aus Entrepreneurship, Partnermanagement, Vertrieb, Marketing, Startups, Deals, Funnels, Leads, Pitches, Kunden, Wachstum und Strategie. " +
+    "Einige Fragen duerfen weiterhin allgemeine absurde Alltagsphilosophie sein. " +
+    "Klang: clever, trocken, leicht absurd, nicht nach LinkedIn-Post, nicht nach Ratgeber. " +
     "Nicht wiederholen: " + existing + ". " +
     "Antworte NUR mit einem JSON-Array von Strings, kein anderer Text.";
 

@@ -36,9 +36,12 @@ const themes = [
 ];
 
 const STORAGE_KEY = "gruebelfragen_archive";
+const POSTED_STORAGE_KEY = "gruebelfragen_posted";
 const QUESTIONS_STORAGE_KEY = "gruebelfragen_questions";
 function loadArchive() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; } }
 function saveArchive(arr) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch {} }
+function loadPosted() { try { return JSON.parse(localStorage.getItem(POSTED_STORAGE_KEY) || "[]"); } catch { return []; } }
+function savePosted(arr) { try { localStorage.setItem(POSTED_STORAGE_KEY, JSON.stringify(arr)); } catch {} }
 function loadFragen() {
   try {
     const saved = JSON.parse(localStorage.getItem(QUESTIONS_STORAGE_KEY) || "null");
@@ -176,8 +179,8 @@ function PatternSVG({ type, color }) {
   );
 }
 
-// ── Mini card for archive grid ────────────────────────────────────
-function MiniCard({ item, dateStr, onShare, onRemove }) {
+// ── Mini card for saved grids ─────────────────────────────────────
+function MiniCard({ item, dateStr, onShare, onRemove, onArchive }) {
   const t = themes[item.themeIdx % themes.length];
   return (
     <div style={{position:"relative",borderRadius:"16px",background:t.bg,border:`3px solid ${t.text}`,boxShadow:`4px 4px 0 ${t.text}`,overflow:"hidden",padding:"14px 12px 10px",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",minHeight:"140px"}}>
@@ -186,6 +189,7 @@ function MiniCard({ item, dateStr, onShare, onRemove }) {
       <div style={{fontFamily:"'Fredoka One',cursive",fontSize:"12px",color:t.text,textAlign:"center",lineHeight:1.35,zIndex:1,flexGrow:1}}>{item.text}</div>
       <div style={{display:"flex",gap:"6px",zIndex:1,marginTop:"4px"}}>
         <button onClick={()=>onShare(item)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:t.text,color:t.bg,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>📤</button>
+        {onArchive&&<button onClick={()=>onArchive(item)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:"rgba(0,0,0,0.15)",color:t.text,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>🗂</button>}
         <button onClick={()=>onRemove(item.id)} style={{fontFamily:"'Fredoka One',cursive",fontSize:"11px",background:"rgba(0,0,0,0.15)",color:t.text,border:"none",borderRadius:"20px",padding:"4px 10px",cursor:"pointer"}}>✕</button>
       </div>
     </div>
@@ -201,6 +205,7 @@ export default function App() {
   const [fragen, setFragen] = useState(loadFragen);
   const [current, setCurrent] = useState(() => dayOfYear % fragen.length);
   const [archive, setArchive] = useState(loadArchive);
+  const [posted, setPosted] = useState(loadPosted);
   const [view, setView] = useState("main");
   const [sharing, setSharing] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -264,9 +269,48 @@ export default function App() {
     showToast("⭐ Zu Favoriten verschoben");
   };
 
+  const removeFavoriteByText = (text) => {
+    setArchive(prev => {
+      const next = prev.filter(a => a.text !== text);
+      if (next.length !== prev.length) saveArchive(next);
+      return next;
+    });
+  };
+
+  const addToPosted = (item) => {
+    setPosted(prev => {
+      if (prev.find(a => a.text === item.text)) return prev;
+      const next = [{ ...item, id: Date.now(), postedAt: dateStr }, ...prev];
+      savePosted(next);
+      return next;
+    });
+  };
+
+  const archivePostedFromMain = (e) => {
+    e.stopPropagation();
+    if (fragen.length<=1) { showToast("Mindestens eine Frage muss bleiben!"); return; }
+    const text = fragen[current];
+    addToPosted({ text, themeIdx: current%themes.length });
+    removeFavoriteByText(text);
+    removeCurrentQuestion();
+    showToast("🗂️ Archiviert");
+  };
+
+  const archivePostedFromFavorite = (item) => {
+    addToPosted(item);
+    const next = archive.filter(a=>a.id!==item.id);
+    setArchive(next); saveArchive(next);
+    showToast("🗂️ Archiviert");
+  };
+
   const removeFromArchive = (id) => {
     const next = archive.filter(a=>a.id!==id);
-    setArchive(next); saveArchive(next); showToast("Aus Archiv entfernt");
+    setArchive(next); saveArchive(next); showToast("Aus Favoriten entfernt");
+  };
+
+  const removeFromPosted = (id) => {
+    const next = posted.filter(a=>a.id!==id);
+    setPosted(next); savePosted(next); showToast("Aus Archiv entfernt");
   };
 
   const handleDeleteClick = (e) => {
@@ -346,7 +390,28 @@ export default function App() {
             <div style={{fontFamily:"'Fredoka One',cursive",color:"rgba(255,255,255,0.4)",fontSize:"18px",textAlign:"center"}}>Noch keine Favoriten.<br/>Tippe auf ☆ um Karten zu speichern.</div>
           </div>
         : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:"12px"}}>
-            {archive.map(item=><MiniCard key={item.id} item={item} dateStr={dateStr} onShare={handleArchiveShare} onRemove={removeFromArchive}/>)}
+            {archive.map(item=><MiniCard key={item.id} item={item} dateStr={dateStr} onShare={handleArchiveShare} onRemove={removeFromArchive} onArchive={archivePostedFromFavorite}/>)}
+          </div>
+      }
+    </div>
+  );
+
+  // ── Posted archive view ────────────────────────────────────────
+  if (view==="posted") return (
+    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",padding:"24px 16px",gap:"16px"}}>
+      <style>{CSS}</style>
+      {toast&&<div className="toast">{toast}</div>}
+      <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+        <button className="btn" onClick={()=>setView("main")} style={{fontFamily:"'Fredoka One',cursive",fontSize:"15px",background:"rgba(255,255,255,0.1)",color:"#fff",border:"2px solid rgba(255,255,255,0.2)",borderRadius:"50px",padding:"8px 18px"}}>← Zurück</button>
+        <div style={{fontFamily:"'Fredoka One',cursive",fontSize:"22px",color:"#fff"}}>🗂 Archiv <span style={{fontSize:"14px",opacity:0.5}}>({posted.length})</span></div>
+      </div>
+      {posted.length===0
+        ? <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"12px"}}>
+            <div style={{fontSize:"60px"}}>🗂</div>
+            <div style={{fontFamily:"'Fredoka One',cursive",color:"rgba(255,255,255,0.4)",fontSize:"18px",textAlign:"center"}}>Noch nichts archiviert.<br/>Hier landen gepostete Karten.</div>
+          </div>
+        : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:"12px"}}>
+            {posted.map(item=><MiniCard key={item.id} item={item} dateStr={dateStr} onShare={handleArchiveShare} onRemove={removeFromPosted}/>)}
           </div>
       }
     </div>
@@ -371,10 +436,16 @@ export default function App() {
           ✕
         </button>
 
-        {/* ☆ archive */}
+        {/* ☆ favorite */}
         <button className="icobtn" onClick={e=>{e.stopPropagation();handleArchive();}}
           style={{position:"absolute",top:"12px",left:"12px",width:"32px",height:"32px",borderRadius:"50%",background:isArchived?"rgba(255,200,0,0.5)":"rgba(0,0,0,0.18)",color:isArchived?"#FFD700":"#fff",fontSize:"16px",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10}}>
           {isArchived?"⭐":"☆"}
+        </button>
+
+        {/* posted archive */}
+        <button className="icobtn" onClick={archivePostedFromMain}
+          style={{position:"absolute",top:"12px",left:"52px",width:"32px",height:"32px",borderRadius:"50%",background:"rgba(0,0,0,0.18)",color:"#fff",fontSize:"15px",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10}}>
+          🗂
         </button>
 
         <div style={{background:theme.text,color:theme.bg,fontFamily:"'Fredoka One',cursive",fontSize:"11px",letterSpacing:"1.5px",padding:"5px 16px",borderRadius:"20px",zIndex:1,textTransform:"uppercase"}}>Grübelfrage des Tages</div>
@@ -401,9 +472,14 @@ export default function App() {
         </button>
       </div>
 
-      <button className="btn" onClick={()=>setView("archive")} style={{fontFamily:"'Fredoka One',cursive",fontSize:"13px",background:"rgba(255,255,255,0.1)",color:"#fff",border:"2px solid rgba(255,255,255,0.18)",borderRadius:"50px",padding:"7px 14px"}}>
-        ⭐ Favoriten{archive.length>0?` (${archive.length})`:""}
-      </button>
+      <div style={{display:"flex",gap:"8px",flexWrap:"wrap",justifyContent:"center"}}>
+        <button className="btn" onClick={()=>setView("archive")} style={{fontFamily:"'Fredoka One',cursive",fontSize:"13px",background:"rgba(255,255,255,0.1)",color:"#fff",border:"2px solid rgba(255,255,255,0.18)",borderRadius:"50px",padding:"7px 14px"}}>
+          ⭐ Favoriten{archive.length>0?` (${archive.length})`:""}
+        </button>
+        <button className="btn" onClick={()=>setView("posted")} style={{fontFamily:"'Fredoka One',cursive",fontSize:"13px",background:"rgba(255,255,255,0.1)",color:"#fff",border:"2px solid rgba(255,255,255,0.18)",borderRadius:"50px",padding:"7px 14px"}}>
+          🗂 Archiv{posted.length>0?` (${posted.length})`:""}
+        </button>
+      </div>
 
       <div style={{color:"rgba(255,255,255,0.2)",fontSize:"11px",fontFamily:"'Nunito',sans-serif"}}>Karte antippen = nächste Frage</div>
     </div>
